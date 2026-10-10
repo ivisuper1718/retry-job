@@ -1,0 +1,39 @@
+name: retry
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  try:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install --quiet oci
+      - id: launch
+        run: python3 launch.py
+        env:
+          OCI_USER: ${{ secrets.OCI_USER }}
+          OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_TENANCY: ${{ secrets.OCI_TENANCY }}
+          OCI_REGION: ${{ secrets.OCI_REGION }}
+          OCI_KEY: ${{ secrets.OCI_KEY }}
+          OCI_AD: ${{ secrets.OCI_AD }}
+          OCI_IMAGE: ${{ secrets.OCI_IMAGE }}
+          OCI_SUBNET: ${{ secrets.OCI_SUBNET }}
+          SSH_PUBKEY: ${{ secrets.SSH_PUBKEY }}
+      # On success: phone push, stop retrying, and fail on purpose so GitHub emails you.
+      - if: steps.launch.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          curl -s -H "Title: Server ready" -d "Your free server has been created." "https://ntfy.sh/$NTFY_TOPIC" > /dev/null
+          gh workflow disable retry.yml -R "$GITHUB_REPOSITORY"
+          echo "::error::SERVER CREATED - this failure is intentional so GitHub emails you."
+          exit 1
