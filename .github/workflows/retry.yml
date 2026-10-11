@@ -4,6 +4,11 @@ on:
     - cron: "*/10 * * * *"
   workflow_dispatch:
 
+# Only one run at a time; a new one waits for the current one to finish.
+concurrency:
+  group: retry
+  cancel-in-progress: false
+
 permissions:
   actions: write
   contents: read
@@ -11,7 +16,7 @@ permissions:
 jobs:
   try:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
       - run: pip install --quiet oci

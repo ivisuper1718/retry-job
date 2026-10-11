@@ -1,5 +1,5 @@
-# Tries once to create the free server. Prints nothing identifying (logs stay private-safe).
-import os, sys
+# Keeps trying to create the free server for ~5.6h. Prints nothing identifying (logs stay private-safe).
+import os, sys, time
 import oci
 
 e = os.environ
@@ -36,14 +36,25 @@ details = oci.core.models.LaunchInstanceDetails(
     metadata={"ssh_authorized_keys": e["SSH_PUBKEY"]},
 )
 
-try:
-    compute.launch_instance(details)
-except oci.exceptions.ServiceError as err:
-    if err.status in (500, 429) or "capacity" in str(err.message).lower():
-        print("No capacity yet.")
-        sys.exit(0)
-    print(f"Unexpected error: HTTP {err.status} {err.code}")
-    sys.exit(1)
+INTERVAL = 120                       # seconds between attempts
+deadline = time.time() + 5.6 * 3600  # stay under GitHub's 6h job limit
+n = 0
+while time.time() < deadline:
+    n += 1
+    try:
+        compute.launch_instance(details)
+    except oci.exceptions.ServiceError as err:
+        if err.status == 429:
+            print(f"attempt {n}: rate limited, waiting longer", flush=True)
+            time.sleep(INTERVAL * 3)
+            continue
+        if err.status == 500 or "capacity" in str(err.message).lower():
+            print(f"attempt {n}: no capacity yet", flush=True)
+            time.sleep(INTERVAL)
+            continue
+        print(f"Unexpected error: HTTP {err.status} {err.code}")
+        sys.exit(1)
+    print(f"attempt {n}: server created.")
+    done()
 
-print("Server created.")
-done()
+print("Time window over, next run continues.")
