@@ -36,7 +36,7 @@ details = oci.core.models.LaunchInstanceDetails(
     metadata={"ssh_authorized_keys": e["SSH_PUBKEY"]},
 )
 
-INTERVAL = 120                       # seconds between attempts
+INTERVAL = 180                       # seconds between attempts
 deadline = time.time() + 5.6 * 3600  # stay under GitHub's 6h job limit
 n = 0
 while time.time() < deadline:
